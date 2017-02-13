@@ -237,10 +237,7 @@ class CASBackend(object):
 
         user = None
         try:
-            if hasattr(User.objects, 'get_by_natural_key'):
-                user = User.objects.get_by_natural_key(username)
-            else:
-                user = User.objects.get(Q(email__exact=username) | Q(username__exact=username))
+            user = User.objects.get(Q(email__exact=username) | Q(username__exact=username))
         except User.DoesNotExist:
             # user will have an "unusable" password
             logger.warn("user %s does not exist is User model %s" % (username, User))
