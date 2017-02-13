@@ -57,6 +57,12 @@ class CASMiddleware(object):
         logout.
         """
 
+        if getattr(settings, 'CAS_ALLOW_INACTIVE', True):
+            pass
+        elif hasattr(request.user, "is_active") and getattr(request.user, "is_active", False) is False:
+            error = "<h1>Forbidden</h1><p>Login failed. Inactive user</p>"
+            return HttpResponseForbidden(error)
+            
         if view_func == login:
             return cas_login(request, *view_args, **view_kwargs)
         elif view_func == logout:
