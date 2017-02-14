@@ -50,35 +50,29 @@ class CASMiddleware(object):
                  "AuthenticationMiddleware'.")
         assert hasattr(request, 'user'), error
 
+    def is_admin_view(self, request, view_func):
+        if settings.CAS_ADMIN_PREFIX:
+            return request.path.startswith(settings.CAS_ADMIN_PREFIX)
+        else:
+            return view_func.__module__.startswith('django.contrib.admin.')
+
     def process_view(self, request, view_func, view_args, view_kwargs):
         """
-        Forwards unauthenticated requests to the admin page to the CAS
-        login URL, as well as calls to django.contrib.auth.views.login and
-        logout.
+        1. Forwards login/logout page to CAS login/logout
+        2. if is admin page. check is_staff permission for authenticated user
+        3. if is not admin page, check is_active permission for authenticated user.
         """
-
-        if getattr(settings, 'CAS_ALLOW_INACTIVE', True):
-            pass
-        elif hasattr(request.user, "is_active") and getattr(request.user, "is_active", False) is False:
-            error = "<h1>Forbidden</h1><p>Login failed. Inactive user</p>"
-            return HttpResponseForbidden(error)
-            
         if view_func == login:
             return cas_login(request, *view_args, **view_kwargs)
         elif view_func == logout:
             return cas_logout(request, *view_args, **view_kwargs)
 
-        if getattr(settings, 'CAS_ALLOW_INACTIVE', True):
-            pass
-        elif request.user.is_authenticated():
-            if hasattr(request.user, "is_active") and getattr(request.user, "is_active", False) is False:
-                error = "<h1>Forbidden</h1><p>Login failed. Inactive user</p>"
-                return HttpResponseForbidden(error)
-
-        if settings.CAS_ADMIN_PREFIX:
-            if not request.path.startswith(settings.CAS_ADMIN_PREFIX):
-                return None
-        elif not view_func.__module__.startswith('django.contrib.admin.'):
+        if not self.is_admin_view(request, view_func):
+            if request.user.is_authenticated():
+                if getattr(settings, 'CAS_ALLOW_ACTIVE_USER_ONLY', True):
+                    if getattr(request.user, "is_active", True):
+                        error = "<h1>Forbidden</h1><p>Login failed. Inactive user</p>"
+                        return HttpResponseForbidden(error)
             return None
 
         if request.user.is_authenticated():
